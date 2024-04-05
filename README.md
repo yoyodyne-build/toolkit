@@ -12,7 +12,7 @@ Included tools are:
 - [ ] Download a static file
 - [x] Get a random string of length _n_
 - [x] Create a directory, including parent directories, if it does not exist
-- [ ] Create an URL safe slug from a string
+- [x] Create an URL safe slug from a string
 
 ## Installation
 

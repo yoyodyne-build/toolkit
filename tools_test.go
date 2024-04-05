@@ -40,6 +40,38 @@ func TestTools_RandomString(t *testing.T) {
 	}
 }
 
+var slugifyTests = []struct {
+	name          string
+	input         string
+	expected      string
+	errorExpected bool
+}{
+	{name: "empty string", input: "  ", expected: "", errorExpected: true},
+	{name: "garbage string", input: "&+=^", expected: "", errorExpected: true},
+	{name: "normal string", input: " hello world ", expected: "hello-world", errorExpected: false},
+	{name: "odd but valid string", input: " hello   world ", expected: "hello-world", errorExpected: false},
+	{name: "complex string", input: "Hugo, what the *!&~ are YOU UP to Dawg?", expected: "hugo-what-the-are-you-up-to-dawg", errorExpected: false},
+}
+
+func TestTools_Slugify(t *testing.T) {
+	var tools Tools
+
+	for _, entry := range slugifyTests {
+		actual, err := tools.Slugify(entry.input)
+		if err != nil && !entry.errorExpected {
+			t.Errorf("%s: unexpected error: %s", entry.name, err.Error())
+		}
+
+		if err == nil && entry.errorExpected {
+			t.Errorf("%s: error expected but none received", entry.name)
+		}
+
+		if actual != entry.expected {
+			t.Errorf("%s: expected '%s', got '%s'", entry.name, entry.expected, actual)
+		}
+	}
+}
+
 var uploadTests = []struct {
 	name          string
 	allowedTypes  []string

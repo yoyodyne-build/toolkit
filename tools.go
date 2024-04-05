@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -52,6 +53,22 @@ type UploadedFile struct {
 	NewFileName      string
 	OriginalFileName string
 	FileSize         int64
+}
+
+// Slugify converts string s into an URL safe slug
+func (t *Tools) Slugify(s string) (string, error) {
+	if strings.Trim(s, " ") == "" {
+		return "", errors.New("empty string not permitted")
+	}
+
+	var re = regexp.MustCompile(`[^a-z\d]+`)
+
+	slug := strings.Trim(re.ReplaceAllString(strings.ToLower(s), "-"), "-")
+	if len(slug) == 0 {
+		return "", errors.New("slugified string is empty")
+	}
+
+	return slug, nil
 }
 
 // UploadFile is a convenience method that call UploadFiles, but expects only one file.
