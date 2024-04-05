@@ -4,7 +4,15 @@ Go module with some common utility functions.
 
 Included tools are:
 
-- [ ] Get a random string of length _n_
+- [ ] Read JSON
+- [ ] Write JSON
+- [ ] Produce a JSON encoded error response
+- [ ] Post JSON to a remote service
+- [x] Upload file(s) to a specified location
+- [ ] Download a static file
+- [x] Get a random string of length _n_
+- [ ] Create a directory, including parent directories, if it does not exist
+- [ ] Create an URL safe slug from a string
 
 ## Installation
 
