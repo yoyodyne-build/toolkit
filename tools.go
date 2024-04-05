@@ -22,6 +22,18 @@ type Tools struct {
 	AllowUnknownFields bool
 }
 
+// CreateDirIfNotExist creates a directory, and all necessary parent directories, if they do not exist
+func (t *Tools) CreateDirIfNotExist(dir string) error {
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		err := os.MkdirAll(dir, os.ModePerm)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // RandomString generates a random string of length n
 func (t *Tools) RandomString(length int) string {
 	s, r := make([]rune, length), []rune(randomStringSource)
@@ -76,7 +88,12 @@ func (t *Tools) UploadFiles(r *http.Request, uploadDir string, rename ...bool) (
 		t.MaxFileSize = 1024 * 1024 * 1024
 	}
 
-	err := r.ParseMultipartForm(t.MaxFileSize)
+	err := t.CreateDirIfNotExist(uploadDir)
+	if err != nil {
+		return nil, err
+	}
+
+	err = r.ParseMultipartForm(t.MaxFileSize)
 	if err != nil {
 		return nil, errors.New("the uploaded file is too big")
 	}

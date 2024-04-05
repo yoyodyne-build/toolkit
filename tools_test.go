@@ -13,6 +13,23 @@ import (
 	"testing"
 )
 
+func TestTools_CreateDirIfNotExist(t *testing.T) {
+	var tools Tools
+	testDir := "./foo/bar/baz"
+
+	err := tools.CreateDirIfNotExist(testDir)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = tools.CreateDirIfNotExist(testDir)
+	if err != nil {
+		t.Error(err)
+	}
+
+	_ = os.RemoveAll("./foo")
+}
+
 func TestTools_RandomString(t *testing.T) {
 	var tools Tools
 

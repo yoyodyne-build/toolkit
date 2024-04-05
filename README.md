@@ -11,7 +11,7 @@ Included tools are:
 - [x] Upload file(s) to a specified location
 - [ ] Download a static file
 - [x] Get a random string of length _n_
-- [ ] Create a directory, including parent directories, if it does not exist
+- [x] Create a directory, including parent directories, if it does not exist
 - [ ] Create an URL safe slug from a string
 
 ## Installation
