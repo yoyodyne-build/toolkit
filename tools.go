@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -21,6 +22,21 @@ type Tools struct {
 	AllowedFileTypes   []string
 	MaxJSONSize        int64
 	AllowUnknownFields bool
+}
+
+// CheckFileType checks if a file type is allowed
+func (t *Tools) CheckFileType(fileType string) bool {
+	if len(t.AllowedFileTypes) == 0 {
+		t.AllowedFileTypes = []string{"image/jpeg", "image/jpg", "image/png", "image/gif", "application/pdf"}
+	}
+
+	for _, t := range t.AllowedFileTypes {
+		if strings.EqualFold(fileType, t) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // CreateDirIfNotExist creates a directory, and all necessary parent directories, if they do not exist
@@ -48,6 +64,60 @@ func (t *Tools) DownloadStaticFile(w http.ResponseWriter, r *http.Request, pathN
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", displayName))
 
 	http.ServeFile(w, r, fp)
+}
+
+// GetNewFileName generates a new file name
+func (t *Tools) GetNewFileName(fileHeader *multipart.FileHeader, renameFile bool) string {
+	if renameFile {
+		return fmt.Sprintf("%s%s", t.RandomString(25), filepath.Ext(fileHeader.Filename))
+	} else {
+		return fileHeader.Filename
+	}
+}
+
+// HandleFile processes a single file and returns an UploadedFile and an error
+func (t *Tools) HandleFile(fileHeader *multipart.FileHeader, uploadDir string, renameFile bool) (*UploadedFile, error) {
+	var uploadedFile UploadedFile
+	infile, err := fileHeader.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer infile.Close()
+
+	buff := make([]byte, 512)
+	_, err = infile.Read(buff)
+	if err != nil {
+		return nil, err
+	}
+
+	// check to see if file type is permitted
+	fileType := http.DetectContentType(buff)
+	if !t.CheckFileType(fileType) {
+		return nil, errors.New("file type not permitted")
+	}
+
+	// be kind, rewind
+	_, err = infile.Seek(0, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	uploadedFile.OriginalFileName = fileHeader.Filename
+	uploadedFile.NewFileName = t.GetNewFileName(fileHeader, renameFile)
+
+	var outfile *os.File
+	defer outfile.Close()
+
+	if outfile, err = os.Create(filepath.Join(uploadDir, uploadedFile.NewFileName)); err != nil {
+		return nil, err
+	}
+	fileSize, err := io.Copy(outfile, infile)
+	if err != nil {
+		return nil, err
+	}
+	uploadedFile.FileSize = fileSize
+
+	return &uploadedFile, nil
 }
 
 // RandomString generates a random string of length n
@@ -132,77 +202,11 @@ func (t *Tools) UploadFiles(r *http.Request, uploadDir string, rename ...bool) (
 
 	for _, fileHeaders := range r.MultipartForm.File {
 		for _, fileHeader := range fileHeaders {
-			uploadedFiles, err = func(uploadedFiles []*UploadedFile) ([]*UploadedFile, error) {
-				var uploadedFile UploadedFile
-				infile, err := fileHeader.Open()
-				if err != nil {
-					return nil, err
-				}
-				defer infile.Close()
-
-				buff := make([]byte, 512)
-				_, err = infile.Read(buff)
-				if err != nil {
-					return nil, err
-				}
-
-				// check to see if file type is permitted
-				allowed := false
-				fileType := http.DetectContentType(buff)
-
-				if len(t.AllowedFileTypes) == 0 {
-					t.AllowedFileTypes = []string{"image/jpeg", "image/jpg", "image/png", "image/gif", "application/pdf"}
-				}
-
-				if len(t.AllowedFileTypes) > 0 {
-					for _, t := range t.AllowedFileTypes {
-						if strings.EqualFold(fileType, t) {
-							allowed = true
-							break
-						}
-					}
-				} else {
-					// allowing all file types
-					allowed = true
-				}
-
-				if !allowed {
-					return nil, errors.New("file type not permitted")
-				}
-
-				// be kind, rewind
-				_, err = infile.Seek(0, 0)
-				if err != nil {
-					return nil, err
-				}
-
-				uploadedFile.OriginalFileName = fileHeader.Filename
-
-				if renameFile {
-					uploadedFile.NewFileName = fmt.Sprintf("%s%s", t.RandomString(25), filepath.Ext(fileHeader.Filename))
-				} else {
-					uploadedFile.NewFileName = fileHeader.Filename
-				}
-
-				var outfile *os.File
-				defer outfile.Close()
-
-				if outfile, err = os.Create(filepath.Join(uploadDir, uploadedFile.NewFileName)); err != nil {
-					return nil, err
-				}
-				fileSize, err := io.Copy(outfile, infile)
-				if err != nil {
-					return nil, err
-				}
-				uploadedFile.FileSize = fileSize
-
-				uploadedFiles = append(uploadedFiles, &uploadedFile)
-
-				return uploadedFiles, nil
-			}(uploadedFiles)
+			uploadedFile, err := t.HandleFile(fileHeader, uploadDir, renameFile)
 			if err != nil {
 				return uploadedFiles, err
 			}
+			uploadedFiles = append(uploadedFiles, uploadedFile)
 		}
 	}
 

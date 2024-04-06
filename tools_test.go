@@ -13,6 +13,34 @@ import (
 	"testing"
 )
 
+func TestTools_CheckFileType(t *testing.T) {
+	var tools Tools
+
+	if tools.CheckFileType("image/jpeg") == false {
+		t.Error("CheckFileType returned false for image/jpeg")
+	}
+
+	if tools.CheckFileType("image/jpg") == false {
+		t.Error("CheckFileType returned false for image/jpg")
+	}
+
+	if tools.CheckFileType("image/png") == false {
+		t.Error("CheckFileType returned false for image/png")
+	}
+
+	if tools.CheckFileType("image/gif") == false {
+		t.Error("CheckFileType returned false for image/gif")
+	}
+
+	if tools.CheckFileType("application/pdf") == false {
+		t.Error("CheckFileType returned false for application/pdf")
+	}
+
+	if tools.CheckFileType("text/plain") == true {
+		t.Error("CheckFileType returned true for text/plain")
+	}
+}
+
 func TestTools_CreateDirIfNotExist(t *testing.T) {
 	var tools Tools
 	testDir := "./foo/bar/baz"
@@ -57,6 +85,25 @@ func TestTools_DownloadStaticFile(t *testing.T) {
 	_, err := io.ReadAll(res.Body)
 	if err != nil {
 		t.Error(err)
+	}
+}
+
+func TestTools_GetNewFileName(t *testing.T) {
+	var tools Tools
+	var fileHeader multipart.FileHeader
+
+	fileHeader.Filename = "cyborg-ape.png"
+
+	newFileName := tools.GetNewFileName(&fileHeader, true)
+
+	if len(newFileName) != 29 {
+		t.Error("GetNewFileName returned a string of the wrong length")
+	}
+
+	newFileName = tools.GetNewFileName(&fileHeader, false)
+
+	if newFileName != "cyborg-ape.png" {
+		t.Error("GetNewFileName returned an unexpected file name")
 	}
 }
 
