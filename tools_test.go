@@ -30,6 +30,36 @@ func TestTools_CreateDirIfNotExist(t *testing.T) {
 	_ = os.RemoveAll("./foo")
 }
 
+func TestTools_DownloadStaticFile(t *testing.T) {
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/", nil)
+	var tools Tools
+
+	displayName := "loljohnny.jpg"
+	expectedFileSize := "32152"
+	expectedDisposition := fmt.Sprintf("attachment; filename=\"%s\"", displayName)
+
+	tools.DownloadStaticFile(rr, req, "./testdata", "tipfinger.jpg", displayName)
+
+	res := rr.Result()
+	defer res.Body.Close()
+
+	actualFileSize := res.Header["Content-Length"][0]
+	if actualFileSize != expectedFileSize {
+		t.Errorf("Incorrect size: got %s expected %s", actualFileSize, expectedFileSize)
+	}
+
+	actualDisposition := res.Header["Content-Disposition"][0]
+	if actualDisposition != expectedDisposition {
+		t.Errorf("Incorrect disposition: got %s expected %s", actualDisposition, expectedDisposition)
+	}
+
+	_, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestTools_RandomString(t *testing.T) {
 	var tools Tools
 

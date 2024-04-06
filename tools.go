@@ -35,6 +35,21 @@ func (t *Tools) CreateDirIfNotExist(dir string) error {
 	return nil
 }
 
+// DownloadStaticFile sends file to the client and attempts to force the browser to download the file,
+// saving it as teh value provided in the displayName parameter
+func (t *Tools) DownloadStaticFile(w http.ResponseWriter, r *http.Request, pathName, fileName, displayName string) {
+	fp := filepath.Join(pathName, fileName)
+
+	if _, err := os.Stat(fp); os.IsNotExist(err) {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", displayName))
+
+	http.ServeFile(w, r, fp)
+}
+
 // RandomString generates a random string of length n
 func (t *Tools) RandomString(length int) string {
 	s, r := make([]rune, length), []rune(randomStringSource)
@@ -174,13 +189,12 @@ func (t *Tools) UploadFiles(r *http.Request, uploadDir string, rename ...bool) (
 
 				if outfile, err = os.Create(filepath.Join(uploadDir, uploadedFile.NewFileName)); err != nil {
 					return nil, err
-				} else {
-					fileSize, err := io.Copy(outfile, infile)
-					if err != nil {
-						return nil, err
-					}
-					uploadedFile.FileSize = fileSize
 				}
+				fileSize, err := io.Copy(outfile, infile)
+				if err != nil {
+					return nil, err
+				}
+				uploadedFile.FileSize = fileSize
 
 				uploadedFiles = append(uploadedFiles, &uploadedFile)
 
