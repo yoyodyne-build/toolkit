@@ -12,15 +12,17 @@ Go module with some common utility functions.
 
 Included tools are:
 
-- [ ] Read JSON
-- [ ] Write JSON
-- [ ] Produce a JSON encoded error response
-- [ ] Post JSON to a remote service
-- [x] Upload file(s) to a specified location
-- [ ] Download a static file
-- [x] Get a random string of length _n_
-- [x] Create a directory, including parent directories, if it does not exist
-- [x] Create an URL safe slug from a string
+- **CreateDirIfNotExist**: Create a directory, including parent directories, if it does not exist
+- **DownloadStaticFile**: Downloads a static file from a given directory
+- **JSON tools**:
+  - **ReadJSON**: Read JSON
+  - **WriteJSON**: Write JSON
+  - **ErrorJSON**: Produce a JSON encoded error response
+  - **PostJSONToRemote**: Post JSON to a remote service
+- **RandomString**: Returns a random string of length _n_
+- **Slugify**: Create an URL safe slug from a string
+- **UploadFile**: Upload a file to a specified location
+- **UploadFiles**: Upload multiple files to a specified location
 
 ## Installation
 
