@@ -1,6 +1,9 @@
 package toolkit
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
 	"image/png"
@@ -12,6 +15,18 @@ import (
 	"sync"
 	"testing"
 )
+
+type RoundTripFunc func(req *http.Request) *http.Response
+
+func (f RoundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req), nil
+}
+
+func MockTestClient(fn RoundTripFunc) *http.Client {
+	return &http.Client{
+		Transport: fn,
+	}
+}
 
 func TestTools_CheckFileType(t *testing.T) {
 	var tools Tools
@@ -276,4 +291,122 @@ func TestTools_UploadFile(t *testing.T) {
 	}
 
 	_ = os.Remove(target)
+}
+
+var readJSONTests = []struct {
+	name          string
+	json          string
+	errorExpected bool
+	maxSize       int64
+	allowUnknown  bool
+}{
+	{name: "valid JSON", json: `{"name": "John Doe"}`, errorExpected: false, maxSize: 512, allowUnknown: false},
+	{name: "invalid JSON", json: `{"name": "John Doe"`, errorExpected: true, maxSize: 512, allowUnknown: false},
+	{name: "not JSON", json: "If there was a problem, yo I'll solve it", errorExpected: true, maxSize: 512, allowUnknown: false},
+	{name: "invalid type", json: `{"name": 1}`, errorExpected: true, maxSize: 512, allowUnknown: false},
+	{name: "missing field name", json: `{name: "Bilbo Biggins"}`, errorExpected: true, maxSize: 512, allowUnknown: true},
+	{name: "allowed unknown field", json: `{"name": "Pat McCorkindale", "age": 15}`, errorExpected: false, maxSize: 512, allowUnknown: true},
+	{name: "disallowed unknown field", json: `{"name": "Pat McCorkindale", "age": 15}`, errorExpected: true, maxSize: 512, allowUnknown: false},
+	{name: "payload exceeds size limit", json: `{"name": "John Doe"}`, errorExpected: true, maxSize: 5, allowUnknown: false},
+	{name: "empty payloads", json: "", errorExpected: true, maxSize: 512, allowUnknown: false},
+	{name: "multiple payloads", json: `{"name": "John Doe"}{"name": "Jane Doe"}`, errorExpected: true, maxSize: 512, allowUnknown: false},
+}
+
+func TestTools_ReadJSON(t *testing.T) {
+	var tools Tools
+	for _, entry := range readJSONTests {
+		tools.MaxJSONSize = entry.maxSize
+		tools.AllowUnknownFields = entry.allowUnknown
+
+		var decoded struct {
+			Name string `json:"name"`
+		}
+
+		req, err := http.NewRequest(http.MethodPost, "/", bytes.NewReader([]byte(entry.json)))
+		if err != nil {
+			t.Log("Error:", err)
+		}
+
+		rr := httptest.NewRecorder()
+		err = tools.ReadJSON(rr, req, &decoded)
+
+		if err != nil && !entry.errorExpected {
+			t.Errorf("%s: unexpected error: %s", entry.name, err.Error())
+		}
+
+		if entry.errorExpected && err == nil {
+			t.Errorf("%s: error expected, but none received", entry.name)
+		}
+
+		req.Body.Close()
+	}
+}
+
+func TestTools_WriteJSON(t *testing.T) {
+	var tools Tools
+	rr := httptest.NewRecorder()
+	payload := JSONResponse{
+		Error:   false,
+		Message: "foo",
+	}
+	headers := make(http.Header)
+	headers.Add("X-Test", "foo")
+
+	err := tools.WriteJSON(rr, http.StatusOK, payload, headers)
+	if err != nil {
+		t.Errorf("failed to write JSON: %v", err)
+	}
+}
+
+func TestTools_ErrorJSON(t *testing.T) {
+	var tools Tools
+	rr := httptest.NewRecorder()
+
+	errorText := "not to be used for the other use"
+	errorStatus := http.StatusServiceUnavailable
+	err := tools.ErrorJSON(rr, errors.New(errorText), errorStatus)
+	if err != nil {
+		t.Error(err)
+	}
+
+	var payload JSONResponse
+	decoder := json.NewDecoder(rr.Body)
+	err = decoder.Decode(&payload)
+	if err != nil {
+		t.Errorf("error decoding JSON: %v", err)
+	}
+
+	if !payload.Error {
+		t.Error("expected error to be true")
+	}
+
+	if payload.Message != errorText {
+		t.Errorf("expected message to be %s, got %s", errorText, payload.Message)
+	}
+
+	if rr.Code != errorStatus {
+		t.Errorf("expected request status code %d, got %d", errorStatus, rr.Code)
+	}
+}
+
+func TestTools_PostJSONToRemote(t *testing.T) {
+	client := MockTestClient(func(req *http.Request) *http.Response {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewBufferString(`{"status": "ok"}`)),
+			Header:     make(http.Header),
+		}
+	})
+
+	var data struct {
+		Bar string `json:"bar"`
+	}
+	data.Bar = "baz"
+
+	var tools Tools
+
+	_, _, err := tools.PostJSONToRemote("http://example.com", data, client)
+	if err != nil {
+		t.Errorf("failed to post JSON to remote: %v", err)
+	}
 }
