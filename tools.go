@@ -54,7 +54,7 @@ func (t *Tools) CreateDirIfNotExist(dir string) error {
 }
 
 // DownloadStaticFile sends file to the client and attempts to force the browser to download the file,
-// saving it as teh value provided in the displayName parameter
+// saving it as the value provided in the displayName parameter
 func (t *Tools) DownloadStaticFile(w http.ResponseWriter, r *http.Request, pathName, fileName, displayName string) {
 	fp := filepath.Join(pathName, fileName)
 
@@ -72,9 +72,9 @@ func (t *Tools) DownloadStaticFile(w http.ResponseWriter, r *http.Request, pathN
 func (t *Tools) GetNewFileName(fileHeader *multipart.FileHeader, renameFile bool) string {
 	if renameFile {
 		return fmt.Sprintf("%s%s", t.RandomString(25), filepath.Ext(fileHeader.Filename))
-	} else {
-		return fileHeader.Filename
 	}
+
+	return fileHeader.Filename
 }
 
 // HandleFile processes a single file and returns an UploadedFile and an error
